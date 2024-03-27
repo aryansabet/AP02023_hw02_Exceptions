@@ -9,3 +9,5 @@ chmod +x ./dotnet-install.sh
 
 # You can install a specific major version with the --channel parameter to indicate the specific version. The following command installs .NET 8.0 SDK.
 ./dotnet-install.sh --channel 8.0
+
+dotnet --info
