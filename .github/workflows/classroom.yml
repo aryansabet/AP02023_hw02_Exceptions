@@ -1,0 +1,80 @@
+name: Build and Test
+on:
+- push
+- workflow_dispatch
+- repository_dispatch
+
+permissions:
+  checks: write
+  actions: read
+  contents: read
+
+jobs:
+  test:
+    name: Click On Me too see Terminal Output
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-classroom[bot]'
+    
+    steps:
+      - name: git pull latest code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          
+      - name: install .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.x
+          
+      - name: Cache NuGet packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+            
+      - name: Cache .NET tools
+        uses: actions/cache@v3
+        with:
+          path: ~/.dotnet/tools
+          key: ${{ runner.os }}-dotnet-tools-${{ hashFiles('**/*.config') }}
+          restore-keys: |
+            ${{ runner.os }}-dotnet-tools-
+            
+      - name: dotnet restore
+        run: |
+          dotnet restore
+          dotnet new tool-manifest
+          dotnet tool install DotnetCtrfJsonReporter --local
+          dotnet tool install dotnet-trx --global
+          
+      - name: dotnet build
+        run: dotnet build --no-restore
+        
+      - name: dotnet test
+        run: |
+          dotnet test --no-build --verbosity normal; trx --output
+
+      - name: Show directory structure (tree command)
+        if: always()
+        uses: jaywcjlove/github-action-folder-tree@main
+        with:
+          exclude: "bin|.git|obj|.config|Materials"
+          depth: 3
+
+      - name: generate summary for Github Actions
+        run: |
+          dotnet test --logger "trx;logfilename=testResults.trx" --no-build --verbosity normal 
+          dotnet tool run DotnetCtrfJsonReporter -p "A7.Test/TestResults/testResults.trx"
+      
+      - name: Publish test report
+        uses: ctrf-io/github-test-reporter@v1
+        with:
+          report-path: './ctrf/*.json'
+          summary-report: true
+          github-report: true
+          test-report: true
+          test-list-report: true
+          failed-report: true
+          skipped-report: false
